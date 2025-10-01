@@ -8,36 +8,56 @@ using System;
 public class LSLDevice : NeuroDevice
 {
     // LSL Inlet
-    public StreamInlet inlet;
+    public StreamInlet eegInlet;
+    public StreamInlet inferenceInlet;
+    // LSL Outlet
     public StreamOutlet outlet;
-    public string StreamNameIn = "myeeg";
-    public string StreamNameOut = "CortexUnity";
+    public string EEGStreamNameIn = "CortexEEG";
+    public string InferenceStreamNameIn = "CortexInference";
+    public string StreamNameOut = "CortexMarkers";
     private StreamInfo[] inStreamInfo;
     private const string StreamType = "Markers";
     private const int ChannelCount = 1; // Single channel for markers
     private const double SampleRate = 0; // Irregular sampling rate
     private const channel_format_t ChannelFormat = channel_format_t.cf_string;
-    private double[] sample;
+    private double[] eeg_sample;
+    private double[] inference_sample;
 
     private double prev_ts = 0;
 
     public LSLDevice()
     {
-        OnDataReceived = new UnityEvent<double[], double>();
+        OnRawDataReceived = new UnityEvent<double[], double>();
+        OnInferenceReceived = new UnityEvent<double[], double>();
         InitMarkerStream();
     }
     private void InitDataStream()
     {
-        inStreamInfo = LSL.LSL.resolve_stream("name", StreamNameIn, timeout:1000);
+        inStreamInfo = LSL.LSL.resolve_stream("name", EEGStreamNameIn, timeout:1000);
         if (inStreamInfo.Length > 0)
         {
-            Debug.Log("Found LSL stream with name: " + StreamNameIn);
-            inlet = new StreamInlet(inStreamInfo[0]);
-            sample = new double[inStreamInfo[0].channel_count()]; // Adjust to the number of channels in your stream
+            Debug.Log("Found LSL stream with name: " + EEGStreamNameIn);
+            eegInlet = new StreamInlet(inStreamInfo[0]);
+            eeg_sample = new double[inStreamInfo[0].channel_count()]; // Adjust to the number of channels in your stream
         }
         else
         {
-            Debug.LogError("No LSL stream found with the name: " + StreamNameIn);
+            Debug.LogError("No LSL stream found with the name: " + EEGStreamNameIn);
+        }
+    }
+
+    private void InitInferenceStream()
+    {
+        inStreamInfo = LSL.LSL.resolve_stream("name", InferenceStreamNameIn, timeout: 1000);
+        if (inStreamInfo.Length > 0)
+        {
+            Debug.Log("Found LSL stream with name: " + InferenceStreamNameIn);
+            inferenceInlet = new StreamInlet(inStreamInfo[0]);
+            inference_sample = new double[inStreamInfo[0].channel_count()]; // Adjust to the number of channels in your stream
+        }
+        else
+        {
+            Debug.LogError("No LSL stream found with the name: " + InferenceStreamNameIn);
         }
     }
 
@@ -45,11 +65,11 @@ public class LSLDevice : NeuroDevice
     {
         try
         {
-            StreamInfo streamInfo = new StreamInfo(StreamNameIn, StreamType, ChannelCount, SampleRate, ChannelFormat, StreamNameOut);
+            StreamInfo streamInfo = new StreamInfo(EEGStreamNameIn, StreamType, ChannelCount, SampleRate, ChannelFormat, StreamNameOut);
             outlet = new StreamOutlet(streamInfo);
             Debug.Log("Started LSL stream with name: " + StreamNameOut);
         }
-        catch (System.Exception e)
+        catch (Exception e)
         {
             Debug.LogError("Error opening LSL stream: " + e.Message);
         }
@@ -57,17 +77,32 @@ public class LSLDevice : NeuroDevice
 
     public override void GetDataStream()
     {
-        if (inlet == null)
+        if (eegInlet == null)
         {
             InitDataStream();
         }
-        if (inlet != null)
+        if (eegInlet != null)
         {
-            
-            if (inlet.pull_sample(sample, 0.0f) > 0)
+            double timestamp = eegInlet.pull_sample(eeg_sample, timeout: 0.0f);
+            if (timestamp != 0)
             {
-                double timestamp = inlet.info().created_at();
-                OnDataReceived.Invoke(sample, timestamp);
+                OnRawDataReceived.Invoke(eeg_sample, timestamp);
+            }
+        }
+    }
+
+    public override void GetInferenceStream()
+    {
+        if (inferenceInlet == null)
+        {
+            InitInferenceStream();
+        }
+        if (inferenceInlet != null)
+        {
+            double timestamp = inferenceInlet.pull_sample(inference_sample, timeout:0.0f);
+            if (timestamp != 0)
+            {
+                OnInferenceReceived.Invoke(inference_sample, timestamp);
             }
         }
     }
@@ -88,9 +123,14 @@ public class LSLDevice : NeuroDevice
 
     void OnApplicationQuit()
     {
-        if (inlet != null)
+        if (eegInlet != null)
         {
-            inlet.close_stream();
+            eegInlet.close_stream();
+        }
+
+        if (inferenceInlet != null)
+        {
+            inferenceInlet.close_stream();
         }
     }
 }
