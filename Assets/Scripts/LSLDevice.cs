@@ -31,9 +31,20 @@ public class LSLDevice : NeuroDevice
         OnInferenceReceived = new UnityEvent<double[], double>();
         InitMarkerStream();
     }
+    
+    public LSLDevice(string eegStreamInName, string inferenceStreamInName, string markersStreamOutName)
+    {
+        OnRawDataReceived = new UnityEvent<double[], double>();
+        OnInferenceReceived = new UnityEvent<double[], double>();
+        EEGStreamNameIn = eegStreamInName;
+        InferenceStreamNameIn = inferenceStreamInName;
+        StreamNameOut = markersStreamOutName;
+        InitMarkerStream();
+    }
+
     private void InitDataStream()
     {
-        inStreamInfo = LSL.LSL.resolve_stream("name", EEGStreamNameIn, timeout:1000);
+        inStreamInfo = LSL.LSL.resolve_stream("name", EEGStreamNameIn, timeout: 1000);
         if (inStreamInfo.Length > 0)
         {
             Debug.Log("Found LSL stream with name: " + EEGStreamNameIn);

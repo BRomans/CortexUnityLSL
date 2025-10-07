@@ -3,11 +3,33 @@ using UnityEngine.Events;
 
 public class BCI : MonoBehaviour
 {
+    [SerializeField]
+    [Tooltip("Select the NeuroDevice to use")]
+    private NeuroDevice.Device selectedDevice = NeuroDevice.Device.LSL;
 
+    [SerializeField]
+    [Tooltip("Name of the EEG stream input")]
+    private string EEGStreamInName = "CortexEEG";
+
+    [SerializeField]
+    [Tooltip("Name of the Inference stream input")]
+    private string InferenceStreamInName = "CortexInference";
+
+    [SerializeField]
+    [Tooltip("Name of the Markers stream output")]
+    private string MarkersStreamOutName = "CortexMarkers";
+
+    [SerializeField]
+    [Tooltip("Event triggered when raw EEG data is received")]
     public UnityEvent<double[], double> OnRawDataReceived;
-    public UnityEvent<double[], double> OnInferenceReceived;
-    private NeuroDevice Device;
 
+    [SerializeField]
+    [Tooltip("Event triggered when inference data is received")]
+    public UnityEvent<double[], double> OnInferenceReceived;
+
+    
+
+    private NeuroDevice Device;
     private bool StreamEEG = false;
     private double firstInferenceTimestamp = 0.0;
     private double firstRawTimestamp = 0.0;
@@ -15,7 +37,7 @@ public class BCI : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        Device = new LSLDevice();
+        Device = new LSLDevice(EEGStreamInName, InferenceStreamInName, MarkersStreamOutName);
         Device.OnRawDataReceived.AddListener(ReceiveRawData);
         Device.OnInferenceReceived.AddListener(ReceiveInferenceData);
     }
